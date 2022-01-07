@@ -5,6 +5,8 @@ export interface Schedule {
     dependencies: Set<Set<Schedule>>;
 }
 
+export type SetterOrUpdater<T> = (val: (arg0: T) => T | T) => void;
+
 const context: any[] = [];
 
 function subscribe(schedule: Schedule, subscriptions: Set<Schedule>) {
@@ -12,7 +14,7 @@ function subscribe(schedule: Schedule, subscriptions: Set<Schedule>) {
     schedule.dependencies.add(subscriptions);
 }
 
-export function createSignal<T>(value: T): [() => T, (val: T) => void] {
+export function createSignal<T>(value: T): [() => T, SetterOrUpdater<T>] {
     const subscriptions = new Set<Schedule>();
 
     const read = (): T => {
@@ -21,8 +23,8 @@ export function createSignal<T>(value: T): [() => T, (val: T) => void] {
         return value;
     };
 
-    const write = (nextValue: T) => {
-        value = nextValue;
+    const write = (nextValue: (arg0: T) => T | T) => {
+        value = typeof nextValue === 'function' ? nextValue(value) : nextValue;
         for (const sub of Array.from(subscriptions)) {
             sub.schedule();
         }
@@ -56,16 +58,31 @@ export function createReaction(schedule: () => void | unknown) {
     return { track };
 }
 
+function flush(fn: () => void ) {
+    if (typeof MessageChannel !== undefined) {
+        const { port1, port2 } = new MessageChannel();
+        port1.onmessage = fn;
+        port2.postMessage(null);
+    } else {
+        setTimeout(fn);
+    }
+}
+
 type ReturnReaction = ReturnType<typeof createReaction>;
 
 export function useReaction<T>(fn: () => T, reaction?: (signal: T) => void): T {
     const [, forceUpdate] = useState({});
+    const queue = useRef<number>(0);
     const reactionTrackingRef = useRef<ReturnReaction | null>(null);
 
     if (!reactionTrackingRef.current) {
         reactionTrackingRef.current = createReaction(() => {
-            forceUpdate({});
-            reaction?.(fn());
+            queue.current += 1;
+            queue.current === 1 && flush(() => {
+                queue.current = 0;
+                forceUpdate({});
+                reaction?.(fn());
+            })
         });
     }
 
@@ -88,7 +105,7 @@ export function useReaction<T>(fn: () => T, reaction?: (signal: T) => void): T {
     return rendering;
 }
 
-export function useSignal<T>(signal:T): [() => T, (value:T) => void] {
+export function useSignal<T>(signal:T): [() => T, SetterOrUpdater<T>] {
   const [[read, write]] = useState(() => createSignal<T>(signal));
   return [read, write];
 }
