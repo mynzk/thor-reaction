@@ -3,12 +3,9 @@ import React, { memo } from 'react';
 import ReactDOM from 'react-dom';
 import { useReaction, useSignal } from '../.';
 
-let cot = 1;
-
 const Counter = ({ onChange  }: any) => {
-  console.log('render=====zk')
   return (
-    <div onClick={() => onChange(++cot)}>add</div>
+    <div onClick={() => onChange(c => c + 1)}>add</div>
   )
 };
 

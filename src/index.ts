@@ -5,7 +5,9 @@ export interface Schedule {
     dependencies: Set<Set<Schedule>>;
 }
 
-export type SetterOrUpdater<T> = (val: (arg0: T) => T | T) => void;
+export const isFn = (x: any): x is Function => typeof x === 'function';
+export type SetValueType<S> = S | ((prevValue: S) => S);
+export type SetterOrUpdater<T> = (value: T) => void;
 
 const context: any[] = [];
 
@@ -14,7 +16,7 @@ function subscribe(schedule: Schedule, subscriptions: Set<Schedule>) {
     schedule.dependencies.add(subscriptions);
 }
 
-export function createSignal<T>(value: T): [() => T, SetterOrUpdater<T>] {
+export function createSignal<T>(value: T): [() => T, SetterOrUpdater<SetValueType<T>>] {
     const subscriptions = new Set<Schedule>();
 
     const read = (): T => {
@@ -23,8 +25,8 @@ export function createSignal<T>(value: T): [() => T, SetterOrUpdater<T>] {
         return value;
     };
 
-    const write = (nextValue: (arg0: T) => T | T) => {
-        value = typeof nextValue === 'function' ? nextValue(value) : nextValue;
+    const write = (nextValue: SetValueType<T>) => {
+        value = isFn(nextValue) ? nextValue(value) : nextValue;
         for (const sub of Array.from(subscriptions)) {
             sub.schedule();
         }
