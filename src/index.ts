@@ -107,7 +107,7 @@ export function useReaction<T>(fn: () => T, reaction?: (signal: T) => void): T {
     return rendering;
 }
 
-export function useSignal<T>(signal:T): [() => T, SetterOrUpdater<T>] {
+export function useSignal<T>(signal:T): [() => T, SetterOrUpdater<SetValueType<T>>] {
   const [[read, write]] = useState(() => createSignal<T>(signal));
   return [read, write];
 }
