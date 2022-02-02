@@ -107,6 +107,39 @@ export function useReaction<T>(fn: () => T, reaction?: (signal: T) => void): T {
     return rendering;
 }
 
+export function useOnlyRun<T>(fn: () => T, reaction?: (signal: T) => void): T {
+    const queue = useRef<number>(0);
+    const reactionTrackingRef = useRef<ReturnReaction | null>(null);
+
+    if (!reactionTrackingRef.current) {
+        reactionTrackingRef.current = createReaction(() => {
+            queue.current += 1;
+            queue.current === 1 && flush(() => {
+                queue.current = 0;
+                reaction?.(fn());
+            })
+        });
+    }
+
+    const { track } = reactionTrackingRef.current;
+
+    let rendering!: T;
+    let exception;
+    track(() => {
+        try {
+            rendering = fn();
+        } catch (e) {
+            exception = e;
+        }
+    });
+
+    if (exception) {
+        throw exception; // re-throw any exceptions caught during rendering
+    }
+
+    return rendering;
+}
+
 export function useSignal<T>(signal:T): [() => T, SetterOrUpdater<SetValueType<T>>] {
   const [[read, write]] = useState(() => createSignal<T>(signal));
   return [read, write];
