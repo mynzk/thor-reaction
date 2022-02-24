@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export interface Schedule {
     schedule: () => unknown | void;
@@ -71,11 +71,17 @@ function flush(fn: () => void ) {
 }
 
 type ReturnReaction = ReturnType<typeof createReaction>;
+type ReactionCall<T> = (signal: T) => void;
 
-export function useReaction<T>(fn: () => T, reaction?: (signal: T) => void): T {
+export function useReaction<T>(fn: () => T, reaction?: ReactionCall<T>): T {
     const [, forceUpdate] = useState({});
     const queue = useRef<number>(0);
+    const reactionCall = useRef<ReactionCall<T> | undefined>(reaction);
     const reactionTrackingRef = useRef<ReturnReaction | null>(null);
+
+    useEffect(() => {
+        reactionCall.current = reaction;
+    });
 
     if (!reactionTrackingRef.current) {
         reactionTrackingRef.current = createReaction(() => {
@@ -83,7 +89,7 @@ export function useReaction<T>(fn: () => T, reaction?: (signal: T) => void): T {
             queue.current === 1 && flush(() => {
                 queue.current = 0;
                 forceUpdate({});
-                reaction?.(fn());
+                reactionCall.current?.(fn());
             })
         });
     }
@@ -107,16 +113,21 @@ export function useReaction<T>(fn: () => T, reaction?: (signal: T) => void): T {
     return rendering;
 }
 
-export function useOnlyRun<T>(fn: () => T, reaction?: (signal: T) => void): T {
+export function useOnlyRun<T>(fn: () => T, reaction?: ReactionCall<T>): T {
     const queue = useRef<number>(0);
+    const reactionCall = useRef<ReactionCall<T> | undefined>(reaction);
     const reactionTrackingRef = useRef<ReturnReaction | null>(null);
+
+    useEffect(() => {
+        reactionCall.current = reaction;
+    });
 
     if (!reactionTrackingRef.current) {
         reactionTrackingRef.current = createReaction(() => {
             queue.current += 1;
             queue.current === 1 && flush(() => {
                 queue.current = 0;
-                reaction?.(fn());
+                reactionCall.current?.(fn());
             })
         });
     }
