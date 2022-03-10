@@ -106,6 +106,10 @@ export function useReaction<T>(fn: () => T, reaction?: ReactionCall<T>): T {
         }
     });
 
+    useEffect(() => {
+        !rendering && forceUpdate({});
+    }, []);
+
     if (exception) {
         throw exception; // re-throw any exceptions caught during rendering
     }
@@ -114,6 +118,7 @@ export function useReaction<T>(fn: () => T, reaction?: ReactionCall<T>): T {
 }
 
 export function useOnlyRun<T>(fn: () => T, reaction?: ReactionCall<T>): T {
+    const [, forceUpdate] = useState({});
     const queue = useRef<number>(0);
     const reactionCall = useRef<ReactionCall<T> | undefined>(reaction);
     const reactionTrackingRef = useRef<ReturnReaction | null>(null);
@@ -143,6 +148,10 @@ export function useOnlyRun<T>(fn: () => T, reaction?: ReactionCall<T>): T {
             exception = e;
         }
     });
+
+    useEffect(() => {
+        !rendering && forceUpdate({});
+    }, []);
 
     if (exception) {
         throw exception; // re-throw any exceptions caught during rendering
