@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 export interface Schedule {
-    schedule: () => unknown | void;
+    schedule: () => () => unknown | void;
     dependencies: Set<Set<Schedule>>;
 }
 
@@ -28,7 +28,7 @@ export function createSignal<T>(value: T): [() => T, SetterOrUpdater<SetValueTyp
     const write = (nextValue: SetValueType<T>) => {
         value = isFn(nextValue) ? nextValue(value) : nextValue;
         for (const sub of Array.from(subscriptions)) {
-            sub.schedule();
+            sub.schedule()();
         }
     };
     return [read, write];
@@ -41,7 +41,12 @@ function cleanup(reaction: any) {
     reaction.dependencies.clear();
 }
 
-export function createReaction(schedule: () => void | unknown) {
+export function createReaction() {
+    let schedule!: () => void | unknown;
+    const reaction = {
+        schedule: () => schedule,
+        dependencies: new Set<Set<Schedule>>(),
+    };
     function track(fn: () => void) {
         cleanup(reaction);
         context.push(reaction);
@@ -51,13 +56,12 @@ export function createReaction(schedule: () => void | unknown) {
             context.pop();
         }
     }
+    
+    function reconcile(fn: () => void | unknown) {
+        schedule = fn;
+    }
 
-    const reaction = {
-        schedule,
-        dependencies: new Set<Set<Schedule>>(),
-    };
-
-    return { track };
+    return { track, reconcile };
 }
 
 function flush(fn: () => void ) {
@@ -73,28 +77,20 @@ function flush(fn: () => void ) {
 type ReturnReaction = ReturnType<typeof createReaction>;
 type ReactionCall<T> = (signal: T) => void;
 
-export function useReaction<T>(fn: () => T, reaction?: ReactionCall<T>): T {
+export function useReaction<T>(fn: () => T): T {
     const [, forceUpdate] = useState({});
+    const [{ track, reconcile }] = useState<ReturnReaction>(() => createReaction());
     const queue = useRef<number>(0);
-    const reactionCall = useRef<ReactionCall<T> | undefined>(reaction);
-    const reactionTrackingRef = useRef<ReturnReaction | null>(null);
 
     useEffect(() => {
-        reactionCall.current = reaction;
-    });
-
-    if (!reactionTrackingRef.current) {
-        reactionTrackingRef.current = createReaction(() => {
+        reconcile(() => {
             queue.current += 1;
             queue.current === 1 && flush(() => {
                 queue.current = 0;
                 forceUpdate({});
-                reactionCall.current?.(fn());
             })
         });
-    }
-
-    const { track } = reactionTrackingRef.current;
+    }, []);
 
     let rendering!: T;
     let exception;
@@ -105,10 +101,6 @@ export function useReaction<T>(fn: () => T, reaction?: ReactionCall<T>): T {
             exception = e;
         }
     });
-
-    useEffect(() => {
-        !rendering && forceUpdate({});
-    }, []);
 
     if (exception) {
         throw exception; // re-throw any exceptions caught during rendering
@@ -118,26 +110,18 @@ export function useReaction<T>(fn: () => T, reaction?: ReactionCall<T>): T {
 }
 
 export function useOnlyRun<T>(fn: () => T, reaction?: ReactionCall<T>): T {
-    const [, forceUpdate] = useState({});
+    const [{ track, reconcile }] = useState<ReturnReaction>(() => createReaction());
     const queue = useRef<number>(0);
-    const reactionCall = useRef<ReactionCall<T> | undefined>(reaction);
-    const reactionTrackingRef = useRef<ReturnReaction | null>(null);
 
     useEffect(() => {
-        reactionCall.current = reaction;
-    });
-
-    if (!reactionTrackingRef.current) {
-        reactionTrackingRef.current = createReaction(() => {
+        reconcile(() => {
             queue.current += 1;
             queue.current === 1 && flush(() => {
                 queue.current = 0;
-                reactionCall.current?.(fn());
+                reaction?.(fn());
             })
         });
-    }
-
-    const { track } = reactionTrackingRef.current;
+    });
 
     let rendering!: T;
     let exception;
@@ -148,10 +132,6 @@ export function useOnlyRun<T>(fn: () => T, reaction?: ReactionCall<T>): T {
             exception = e;
         }
     });
-
-    useEffect(() => {
-        !rendering && forceUpdate({});
-    }, []);
 
     if (exception) {
         throw exception; // re-throw any exceptions caught during rendering
