@@ -28,7 +28,7 @@ export function createSignal<T>(value: T): [() => T, SetterOrUpdater<SetValueTyp
     const write = (nextValue: SetValueType<T>) => {
         value = isFn(nextValue) ? nextValue(value) : nextValue;
         for (const sub of Array.from(subscriptions)) {
-            sub.schedule()();
+            sub.schedule()?.();
         }
     };
     return [read, write];
@@ -81,8 +81,11 @@ export function useReaction<T>(fn: () => T): T {
     const [, forceUpdate] = useState({});
     const [{ track, reconcile }] = useState<ReturnReaction>(() => createReaction());
     const queue = useRef<number>(0);
+    const mounted = useRef(false);
 
     useEffect(() => {
+        if (mounted.current) return;
+        mounted.current = true;
         reconcile(() => {
             queue.current += 1;
             queue.current === 1 && flush(() => {
