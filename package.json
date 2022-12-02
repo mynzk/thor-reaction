@@ -14,18 +14,13 @@
     "start": "tsdx watch",
     "build": "tsdx build",
     "test": "tsdx test --passWithNoTests",
+    "prepare": "husky install",
     "lint": "tsdx lint",
-    "prepare": "tsdx build",
     "size": "size-limit",
     "analyze": "size-limit --why"
   },
   "peerDependencies": {
     "react": ">=16"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "tsdx lint"
-    }
   },
   "prettier": {
     "printWidth": 80,
@@ -47,10 +42,13 @@
     }
   ],
   "devDependencies": {
+    "@commitlint/cli": "^17.3.0",
+    "@commitlint/config-conventional": "^17.3.0",
     "@size-limit/preset-small-lib": "^7.0.4",
     "@types/react": "^17.0.37",
     "@types/react-dom": "^17.0.11",
-    "husky": "^7.0.4",
+    "husky": "^8.0.2",
+    "lint-staged": "^13.0.4",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "size-limit": "^7.0.4",
