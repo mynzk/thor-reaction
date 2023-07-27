@@ -56,7 +56,7 @@ export function createReaction() {
             context.pop();
         }
     }
-    
+
     function reconcile(fn: () => void | unknown) {
         schedule = fn;
     }
@@ -65,7 +65,7 @@ export function createReaction() {
 }
 
 function flush(fn: () => void ) {
-    if (typeof MessageChannel !== undefined) {
+    if (typeof MessageChannel !== 'undefined') {
         const { port1, port2 } = new MessageChannel();
         port1.onmessage = fn;
         port2.postMessage(null);

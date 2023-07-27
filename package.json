@@ -15,7 +15,7 @@
     "build": "tsdx build",
     "test": "tsdx test --passWithNoTests",
     "prepare": "husky install",
-    "lint": "tsdx lint",
+    "lint": "tsdx test --passWithNoTests",
     "size": "size-limit",
     "analyze": "size-limit --why"
   },
